@@ -29,6 +29,9 @@ class DataCleaner:
     def extract(self) -> None:
         self.raw_df = pd.read_csv(self.input_fn, sep="\t")
 
+    def _transform_validations(self):
+        assert self.raw_df is not None, "extract the data first"
+
     def _reshape(self, id_vars: Iterable) -> None:
         expanded_index = self.raw_df.iloc[:, 0].str.split(',', expand=True)
         index_cols = self.raw_df.columns[0].replace("\\", ",").split(",")[:-1]
@@ -57,17 +60,23 @@ class DataCleaner:
             id_vars: Iterable,
             region: list[str],
             rename_cols: Optional[StrDict] = None) -> None:
+        self._transform_validations()
         self._reshape(id_vars)
         self._rename(rename_cols)
         self._filter(region)
         self._reformat()
 
+    def _load_validations(self):
+        assert self.transformed_df is not None, "transform the data first"
+
     # pylint: disable=C0116
     def load(self, output_fn: str) -> None:
+        self._load_validations()
         self.transformed_df.to_csv(output_fn, index=False)
 
 
-def clean_data(region: list[str] = 'PT') -> None:
+# pylint: disable=W0102
+def clean_data(region: list[str] = ['PT']) -> None:
     """
     Perform an ETL on the EU life expectancy file
     """

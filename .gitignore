@@ -1,0 +1,9 @@
+# Ignore IDEA folder
+.idea
+
+# Ignore cache
+.pytest_cache
+
+# Ignore build
+assignments.egg-info
+build
