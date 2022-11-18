@@ -6,7 +6,7 @@ from typing import Optional
 from collections.abc import Iterable
 import pandas as pd
 
-from life_expectancy.constants import StrDict
+from life_expectancy.types import StrDict
 from life_expectancy import config
 
 
