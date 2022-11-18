@@ -3,6 +3,7 @@
 
 # Ignore cache
 .pytest_cache
+__pycache__
 
 # Ignore build
 assignments.egg-info
