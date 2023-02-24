@@ -1,13 +1,13 @@
 """
 Cleaning object that performs an entire ETL on the selected file.
 """
-import argparse
+import logging
+
 from typing import Optional
 from collections.abc import Iterable
 import pandas as pd
 
 from life_expectancy.types import StrDict
-from life_expectancy import config
 
 
 class DataCleaner:
@@ -27,12 +27,16 @@ class DataCleaner:
 
     # pylint: disable=C0116
     def extract(self) -> None:
+        """
+        Loads the initialized csv file
+        """
+        logging.info('start extract')
         self.raw_df = pd.read_csv(self.input_fn, sep="\t")
 
     def _transform_validations(self):
         assert self.raw_df is not None, "extract the data first"
 
-    def _reshape(self, id_vars: Iterable) -> None:
+    def _unpivot(self, id_vars: Iterable) -> None:
         expanded_index = self.raw_df.iloc[:, 0].str.split(',', expand=True)
         index_cols = self.raw_df.columns[0].replace("\\", ",").split(",")[:-1]
         expanded_index.columns = index_cols
@@ -46,22 +50,37 @@ class DataCleaner:
         if rename_cols:
             self.transformed_df.rename(columns=rename_cols, inplace=True)
 
-    def _filter(self, region: list[str]) -> None:
-        self.transformed_df = self.transformed_df[self.transformed_df.region.isin(region)]
+    def _filter(self, region: Optional[list[str]] = None) -> None:
+        if not region:
+            return
+        region = [r.upper() for r in region]
+        region_col = self.transformed_df.region.str.upper()
+        mask = region_col.isin(region)
+        if not mask.any():
+            logging.warning("the selected region doesn't match any region - IGNORED")
+            return
+        self.transformed_df = self.transformed_df[mask]
 
     def _reformat(self) -> None:
         value = self.transformed_df.value.str.extract(r'(\d+.\d)')
         self.transformed_df["value"] = value.astype(float)
         self.transformed_df = self.transformed_df[self.transformed_df.value.notnull()]
 
-    # pylint: disable=C0116
     def transform(
             self,
             id_vars: Iterable,
-            region: list[str],
+            region: Optional[list[str]] = None,
             rename_cols: Optional[StrDict] = None) -> None:
+        """
+        It unpivots the data, cleans the data and filters to the selected regions
+        and optionally also renames the columns
+        :param id_vars: the variables that be place in the line of the unpivoted table
+        :param region: list of regions that to be kept in the final data frame
+        :param rename_cols: dictionary mapping the old column name to the new
+        """
+        logging.info('start transform')
         self._transform_validations()
-        self._reshape(id_vars)
+        self._unpivot(id_vars)
         self._rename(rename_cols)
         self._filter(region)
         self._reformat()
@@ -69,45 +88,12 @@ class DataCleaner:
     def _load_validations(self):
         assert self.transformed_df is not None, "transform the data first"
 
-    # pylint: disable=C0116
     def load(self, output_fn: str) -> None:
-        self._load_validations()
-        self.transformed_df.to_csv(output_fn, index=False)
-
-
-# pylint: disable=W0102
-def clean_data(region: list[str] = ['PT']) -> None:
-    """
-    Perform an ETL on the EU life expectancy file
-    """
-    data_cleaner = DataCleaner(config.EU_LIFE_EXPECTANCY_FN)
-    data_cleaner.extract()
-    data_cleaner.transform(
-        ['unit', 'sex', 'age', 'geo'],
-        region,
-        {'geo': 'region'})
-    data_cleaner.load(config.PT_LIFE_EXPECTANCY_FN)
-
-
-# pylint: disable=C0116
-def parse_cli_args() -> dict:
-    description = """
-        Reads a file with lifetime expectancy per year, unit, sex, age, geo, unpivots it and saves to a new files.
         """
-    parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('-b', action='store_const', const=42)
-    parser.add_argument(
-        "-r",
-        "--region",
-        type=str,
-        default=['PT'],
-        required=False,
-        nargs='+',
-        help="list of countries of the export in the final file"
-    )
-    return vars(parser.parse_args())
-
-
-if __name__ == "__main__":  # pragma: no cover
-    args = parse_cli_args()
-    clean_data(args['region'])
+        Write output to desired file
+        :param output_fn: destination file name
+        """
+        logging.info('start loading')
+        self._load_validations()
+        logging.info(f'writing {len(self.transformed_df)} to file')
+        self.transformed_df.to_csv(output_fn, index=False)

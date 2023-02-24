@@ -1,11 +1,11 @@
 [project]
 name = "assignments"
-version = "0.0.1"
+version = "0.0.2"
 readme = "README.md"
 requires-python = ">=3.10"
 description = "First assignment of the FAAST Advance Foundations"
 authors = [
-    {name = "Fernando Cordeiro<fernando@daredata.engineering>"}
+    {name = "Diogo Norinho<diogo.norinho@nos.pt>"}
 ]
 dependencies = ["pandas"]
 
